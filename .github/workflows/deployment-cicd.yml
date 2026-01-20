@@ -1,0 +1,74 @@
+name: devops-assignnment-pipeline
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT }}
+  REGION: asia-south1
+  SERVICE_NAME: devops-app-pipeline
+  IMAGE: devops-app
+  DEV_REPOSITORY: dev-repo
+  PROD_REPOSITORY: prod-repo
+  TAG: v1.0.${{ github.run_number }}
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Docker auth
+        run: gcloud auth configure-docker $REGION-docker.pkg.dev
+
+      - name: Set env
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "REPOSITORY=$DEV_REPOSITORY" >> $GITHUB_ENV
+          else
+            echo "ENV=prod" >> $GITHUB_ENV
+            echo "REPOSITORY=$PROD_REPOSITORY" >> $GITHUB_ENV
+          fi
+
+      - name: Build image
+        run: docker build -t $IMAGE .
+
+      - name: Tag image
+        run: |
+          docker tag $IMAGE \
+          $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG
+
+      - name: Push image
+        run: |
+          docker push \
+          $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-publish
+
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy
+        run: |
+          gcloud run deploy $SERVICE_NAME-$ENV \
+            --image $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG \
+            --region $REGION \
+            --platform managed \
+            --allow-unauthenticated
