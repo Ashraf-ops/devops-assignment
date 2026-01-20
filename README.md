@@ -5,7 +5,6 @@ This repository contains a simple HTTP application and its complete DevOps imple
 
 The application is containerized using Docker and deployed to Google Cloud Run. A custom VPC, subnet, and Serverless VPC Access Connector are configured to enable secure network communication.
 
----
 
 ## Repository Structure
 
@@ -14,7 +13,8 @@ The application is containerized using Docker and deployed to Google Cloud Run. 
 │ └── main.py
 ├── Dockerfile
 ├── requirements.txt
-├── .github/workflows/
+├── .github/
+│ └── workflows/
 │ └── devops-app-pipeline.yml
 └── README.md
 
